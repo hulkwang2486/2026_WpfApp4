@@ -1,13 +1,8 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace _2026_WpfApp4
 {
@@ -16,45 +11,119 @@ namespace _2026_WpfApp4
     /// </summary>
     public partial class MainWindow : Window
     {
+
+        private Dictionary<string, int> drinkMenu = new Dictionary<string, int>()
+        {
+            { "紅茶大杯", 60 },
+            { "紅茶小杯", 35 },
+            { "綠茶大杯", 50 },
+            { "綠茶小杯", 25 },
+            { "可樂大杯", 50 },
+            { "可樂小杯", 30 }
+        };
+
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            var targetTextBox = sender as TextBox;
-            var targetStackPanel = targetTextBox.Parent as StackPanel;
-            var targetNameLabel = targetStackPanel.Children[0] as Label;
-            var targetPriceLabel = targetStackPanel.Children[1] as Label;
-
-            int amount;
-            bool success = int.TryParse(targetTextBox.Text, out amount);
-            if (!success)
-            {
-                MessageBox.Show("請輸入正確數值", "輸入錯誤");
-                //targetTextBox.Text = "";
-            }
-            else
-            {
-                string drinkName = targetNameLabel.Content.ToString();
-                int price = Convert.ToInt32(targetPriceLabel.Content.ToString().Substring(0, 2));
-                //MessageBox.Show($"您選擇了 {drinkName} ‧ 數量為 {amount} ‧ 總價為 {price * amount} 元", "訂購資訊");
-                ResultTextBlock.Text += $"您選擇了 {drinkName} ‧ 數量為 {amount} ‧ 總價為 {price * amount} 元\n";
-            }
-        }
-
         private void OrderButton_Click(object sender, RoutedEventArgs e)
         {
-            // 檢查是否有訂購紀錄
-            if (!string.IsNullOrWhiteSpace(ResultTextBlock.Text))
+
+            Dictionary<string, int> orderDetails = new Dictionary<string, int>();
+
+            foreach (var child in DrinkListStackPanel.Children)
             {
-                MessageBox.Show($"感謝您的訂購！訂購清單如下：\n\n{ResultTextBlock.Text}", "訂購成功");
+                if (child is Grid itemGrid)
+                {
+                    CheckBox chk = null;
+                    Slider sld = null;
+
+                    foreach (var element in itemGrid.Children)
+                    {
+                        if (element is CheckBox checkBox)
+                        {
+                            chk = checkBox;
+                        }
+                        else if (element is Slider slider)
+                        {
+                            sld = slider;
+                        }
+                    }
+
+                    if (chk != null && chk.IsChecked == true && sld != null && (int)sld.Value > 0)
+                    {
+                        string drinkName = chk.Content.ToString();
+                        int amount = (int)sld.Value;
+                        orderDetails[drinkName] = amount;
+                    }
+                }
             }
-            else
+
+            if (orderDetails.Count == 0)
             {
-                MessageBox.Show("目前尚未輸入任何訂購數量，請先選擇飲料數量！", "提示");
+                MessageBox.Show("請勾選欲購買的飲料並選擇數量！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ResultTextBlock.Text = "";
+                return;
             }
+
+            int originalTotal = 0;
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("【訂購明細】");
+
+            foreach (var item in orderDetails)
+            {
+                string name = item.Key;
+                int amount = item.Value;
+                int unitPrice = drinkMenu[name];
+                int subtotal = unitPrice * amount;
+
+                originalTotal += subtotal;
+                sb.AppendLine($"• {name} x {amount} 杯 ＝ {subtotal} 元 (單價: {unitPrice} 元)");
+            }
+
+            double discountRate = 1.0;
+            string discountType = "內用 (原價)";
+
+            if (rbTakeOut.IsChecked == true)
+            {
+                discountRate = 0.9;
+                discountType = "外帶 (九折優惠)";
+            }
+            else if (rbEcoCup.IsChecked == true)
+            {
+                discountRate = 0.85;
+                discountType = "自備環保杯 (八五折優惠)";
+            }
+
+            int finalTotal = (int)Math.Round(originalTotal * discountRate);
+
+            sb.AppendLine();
+            sb.AppendLine($"原始總金額：{originalTotal} 元");
+            sb.AppendLine($"購買方式與折扣：{discountType}");
+            sb.AppendLine($"折扣後金額：{finalTotal} 元");
+
+            ResultTextBlock.Text = sb.ToString();
+            MessageBox.Show($"訂購完成！\n應付總金額為：{finalTotal} 元", "訊息提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void ResetButton_Click(object sender, RoutedEventArgs e)
+        {
+
+            foreach (var child in DrinkListStackPanel.Children)
+            {
+                if (child is Grid itemGrid)
+                {
+                    foreach (var element in itemGrid.Children)
+                    {
+                        if (element is CheckBox chk) chk.IsChecked = false;
+                        if (element is Slider sld) sld.Value = 1;
+                    }
+                }
+            }
+
+            rbDineIn.IsChecked = true;
+            ResultTextBlock.Text = "";
         }
     }
 }
